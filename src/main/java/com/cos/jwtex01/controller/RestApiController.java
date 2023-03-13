@@ -1,14 +1,15 @@
 package com.cos.jwtex01.controller;
 
 import java.util.List;
+import java.util.Map;
 
+import com.cos.jwtex01.config.jwt.JwtProvider;
+import com.cos.jwtex01.model.Token;
+import com.cos.jwtex01.service.JwtService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.cos.jwtex01.config.auth.PrincipalDetails;
 import com.cos.jwtex01.model.User;
@@ -16,14 +17,19 @@ import com.cos.jwtex01.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
+import javax.servlet.http.Cookie;
+
 @RestController
 @RequestMapping("api/v1")
 @RequiredArgsConstructor
+@Slf4j
 // @CrossOrigin  // CORS 허용 
 public class RestApiController {
 	
 	private final UserRepository userRepository;
 	private final BCryptPasswordEncoder bCryptPasswordEncoder;
+	private final JwtProvider jwtTokenProvider;
+	private final JwtService jwtService;
 	
 	// 모든 사람이 접근 가능
 	@GetMapping("home")
@@ -63,6 +69,24 @@ public class RestApiController {
 		user.setRoles("ROLE_USER");
 		userRepository.save(user);
 		return "회원가입완료";
+	}
+
+	@GetMapping("/securetest")
+	public void sucureTest(@RequestParam Cookie cookie){
+
+	}
+
+	// 로그인
+	@PostMapping("/pagelogin")
+	public Token login(@RequestBody Map<String, String> user) {
+		log.info("user email = {}", user.get("userEmail"));
+		User member = userRepository.findByUsername2(user.get("userEmail"))
+				.orElseThrow(() -> new IllegalArgumentException("가입되지 않은 E-MAIL 입니다."));
+
+		Token tokenDto = jwtTokenProvider.createAccessToken(member.getUsername(), member.getRoles());
+		log.info("getroleeeee = {}", member.getRoles());
+		jwtService.login(tokenDto);
+		return tokenDto;
 	}
 	
 }

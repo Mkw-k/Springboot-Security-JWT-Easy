@@ -2,6 +2,8 @@ package com.cos.jwtex01.config;
 
 
 
+import com.cos.jwtex01.repository.RefreshTokenRepository;
+import com.cos.jwtex01.service.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,7 +27,10 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 	
 	@Autowired
 	private CorsConfig corsConfig;
-	
+
+	@Autowired
+	JwtService jwtService;
+
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
 		http
@@ -36,8 +41,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 				.formLogin().disable()
 				.httpBasic().disable()
 				
-				.addFilter(new JwtAuthenticationFilter(authenticationManager()))
-				.addFilter(new JwtAuthorizationFilter(authenticationManager(), userRepository))
+//				.addFilter(new JwtAuthenticationFilter(authenticationManager()))
+				.addFilter(new JwtAuthenticationFilter(authenticationManager(), jwtService))
+				.addFilter(new JwtAuthorizationFilter(authenticationManager(), userRepository, jwtService))
 				.authorizeRequests()
 				.antMatchers("/api/v1/user/**")
 				.access("hasRole('ROLE_USER') or hasRole('ROLE_MANAGER') or hasRole('ROLE_ADMIN')")
@@ -47,6 +53,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 					.access("hasRole('ROLE_ADMIN')")
 				.anyRequest().permitAll();
 	}
+
 }
 
 

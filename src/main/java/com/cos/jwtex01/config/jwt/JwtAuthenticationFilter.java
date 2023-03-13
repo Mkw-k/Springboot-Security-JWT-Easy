@@ -1,15 +1,19 @@
 package com.cos.jwtex01.config.jwt;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Date;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.springframework.context.annotation.Configuration;
+import com.cos.jwtex01.model.RefreshToken;
+import com.cos.jwtex01.model.Token;
+import com.cos.jwtex01.repository.RefreshTokenRepository;
+import com.cos.jwtex01.service.JwtService;
+import lombok.NoArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,11 +28,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 최초 토큰 생성 해주는 필터로 보임 
+ */
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilter{
 
 	private final AuthenticationManager authenticationManager;
-	
+	private final JwtService jwtService;
+
 	// Authentication 객체 만들어서 리턴 => 의존 : AuthenticationManager
 	// 인증 요청시에 실행되는 함수 => /login
 	@Override
@@ -74,20 +82,40 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
 	}
 
 	// JWT Token 생성해서 response에 담아주기
+	// 위에 로그인 Authentication에 성공했을경우 이 메서드를 타게된다
 	@Override
 	protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
-			Authentication authResult) throws IOException, ServletException {
+											Authentication authResult) throws IOException, ServletException {
 		
 		PrincipalDetails principalDetailis = (PrincipalDetails) authResult.getPrincipal();
 		
-		String jwtToken = JWT.create()
+		String accessToken = JWT.create()
 				.withSubject(principalDetailis.getUsername())
 				.withExpiresAt(new Date(System.currentTimeMillis()+JwtProperties.EXPIRATION_TIME))
 				.withClaim("id", principalDetailis.getUser().getId())
 				.withClaim("username", principalDetailis.getUser().getUsername())
 				.sign(Algorithm.HMAC512(JwtProperties.SECRET));
-		
-		response.addHeader(JwtProperties.HEADER_STRING, JwtProperties.TOKEN_PREFIX+jwtToken);
+
+		String refreshToken = JWT.create()
+				.withSubject(principalDetailis.getUsername())
+				.withIssuedAt(Date.from(Instant.now()))
+				.withExpiresAt(new Date(System.currentTimeMillis()+JwtProperties.REFRESH_EXPIRATION_TIME))
+				.withClaim("id", principalDetailis.getUser().getId())
+				.withClaim("username", principalDetailis.getUser().getUsername())
+				.sign(Algorithm.HMAC512(JwtProperties.REFRESH_SECRET));
+
+		response.addHeader(JwtProperties.HEADER_STRING, JwtProperties.TOKEN_PREFIX+accessToken);
+		response.addHeader(JwtProperties.REFRESH_TOKEN_STRING, JwtProperties.TOKEN_PREFIX+refreshToken);
+
+		Token token = Token.builder()
+				.refreshToken(refreshToken)
+				.accessToken(accessToken)
+				.key(principalDetailis.getUser().getUsername())
+				.build();
+
+		jwtService.login(token);
 	}
+
+
 	
 }
