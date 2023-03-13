@@ -58,7 +58,7 @@ public class JwtService {
         //refresh DB 에 refreshToken 존재여부 확인
         RefreshToken refreshToken1 = getRefreshToken(refreshToken).orElseThrow(() -> new Exception("로그인 정보가 만료되었습니다 다시 로그인해주세요"));
 
-        //refreshToken 실제 검증
+        //refreshToken 실제 검증 - 검증 성공시 AccessToken 발급
         String createdAccessToken = jwtTokenProvider.validateRefreshToken(refreshToken1);
 
         return createRefreshJson(createdAccessToken, response);

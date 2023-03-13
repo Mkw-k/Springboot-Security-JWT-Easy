@@ -9,6 +9,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.auth0.jwt.JWTVerifier;
+import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.cos.jwtex01.service.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -68,7 +70,19 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
 
 		//토큰 디코딩 - 시간 만료시 디코딩 도중에 예외가 발생한다
 		//https://velog.io/@devmin/JWT-token-expired-date-with-timedelta
-		DecodedJWT decodedJWT = JWT.require(Algorithm.HMAC512(JwtProperties.SECRET)).build().verify(token);
+		DecodedJWT decodedJWT = null;
+		try {
+			decodedJWT = JWT.require(Algorithm.HMAC512(JwtProperties.SECRET)).build().verify(token);
+		} catch (TokenExpiredException e) {
+			logger.info("토큰 시간 만료!!");
+			String refreshToken = request.getHeader(JwtProperties.REFRESH_TOKEN_STRING);
+			try {
+				//refreshToken 검증
+				jwtService.validateRefreshToken(refreshToken, response);
+			} catch (Exception e2) {
+				throw new RuntimeException(e2);
+			}
+		}
 		String username = decodedJWT.getClaim("username").asString();
 
 		//username값이 존재할경우
