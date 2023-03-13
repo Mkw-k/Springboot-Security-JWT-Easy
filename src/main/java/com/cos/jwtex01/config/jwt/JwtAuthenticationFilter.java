@@ -29,7 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 최초 토큰 생성 해주는 필터로 보임 
+ * 최초 토큰 생성 해주는 필터로 보임 - 로그인
  */
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilter{
@@ -113,6 +113,8 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
 				.key(principalDetailis.getUser().getUsername())
 				.build();
 
+		//로그인 처리 - username에 해당하는 refresh Token이 존재할경우 삭제후 생성하여 DB에 저장
+		//없을경우 그대로 저장
 		jwtService.login(token);
 	}
 

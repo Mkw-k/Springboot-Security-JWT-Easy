@@ -26,6 +26,9 @@ import com.cos.jwtex01.repository.UserRepository;
 /**
  * 인가
  * 확인헤서 토큰이 정상여부 확인 및 후처리
+ * 다른 비즈니스 로직들 요청시
+ *
+ * Access Token 만료시 또는 불일치 할경우 
  * */
 public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
 	
@@ -48,6 +51,8 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
                         return;
 		}
 		System.out.println("header : "+header);
+		
+		//헤더에서 AccessToken값을 불러온뒤 Bearer를 제거해준다
 		String token = request.getHeader(JwtProperties.HEADER_STRING)
 				.replace(JwtProperties.TOKEN_PREFIX, "");
 		
@@ -60,14 +65,19 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
 
 //		String username = JWT.require(Algorithm.HMAC512(JwtProperties.SECRET)).build().verify(token)
 //				.getClaim("username").asString();
+
+		//토큰 디코딩 - 시간 만료시 디코딩 도중에 예외가 발생한다
+		//https://velog.io/@devmin/JWT-token-expired-date-with-timedelta
 		DecodedJWT decodedJWT = JWT.require(Algorithm.HMAC512(JwtProperties.SECRET)).build().verify(token);
 		String username = decodedJWT.getClaim("username").asString();
 
+		//username값이 존재할경우
 		if(username != null) {
-			// 토큰이 만료되었을경우
+			// 토큰이 만료되었을경우 - refreshToken 검증
 			if(!decodedJWT.getExpiresAt().before(new Date())){
 				String refreshToken = request.getHeader(JwtProperties.REFRESH_TOKEN_STRING);
 				try {
+					//refreshToken 검증
 					jwtService.validateRefreshToken(refreshToken, response);
 				} catch (Exception e) {
 					throw new RuntimeException(e);

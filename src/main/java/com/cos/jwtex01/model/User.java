@@ -13,7 +13,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Entity
+@Entity(name = "jwt_user")
 @Data
 public class User implements UserDetails {
 
