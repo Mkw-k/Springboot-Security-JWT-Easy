@@ -1,12 +1,16 @@
 package com.cos.jwtex01.config.jwt;
 
 import java.io.IOException;
+import java.util.Date;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.auth0.jwt.JWTVerifier;
+import com.auth0.jwt.interfaces.DecodedJWT;
+import com.cos.jwtex01.service.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -19,14 +23,20 @@ import com.cos.jwtex01.config.auth.PrincipalDetails;
 import com.cos.jwtex01.model.User;
 import com.cos.jwtex01.repository.UserRepository;
 
-// 인가
+/**
+ * 인가
+ * 확인헤서 토큰이 정상여부 확인 및 후처리
+ * */
 public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
 	
 	private UserRepository userRepository;
+	private JwtService jwtService;
 	
-	public JwtAuthorizationFilter(AuthenticationManager authenticationManager, UserRepository userRepository) {
+	public JwtAuthorizationFilter(AuthenticationManager authenticationManager, UserRepository userRepository,
+								  JwtService jwtService) {
 		super(authenticationManager);
 		this.userRepository = userRepository;
+		this.jwtService = jwtService;
 	}
 	
 	@Override
@@ -43,10 +53,27 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
 		
 		// 토큰 검증 (이게 인증이기 때문에 AuthenticationManager도 필요 없음)
 		// 내가 SecurityContext에 집적접근해서 세션을 만들때 자동으로 UserDetailsService에 있는 loadByUsername이 호출됨.
-		String username = JWT.require(Algorithm.HMAC512(JwtProperties.SECRET)).build().verify(token)
-				.getClaim("username").asString();
-		
-		if(username != null) {	
+//		Algorithm algorithm = Algorithm.HMAC512(JwtProperties.SECRET);
+//		JWTVerifier verifier = JWT.require(algorithm).build();
+//		DecodedJWT decodedJWT = verifier.verify(token);
+//		String username = decodedJWT.getClaim("username").toString();;
+
+//		String username = JWT.require(Algorithm.HMAC512(JwtProperties.SECRET)).build().verify(token)
+//				.getClaim("username").asString();
+		DecodedJWT decodedJWT = JWT.require(Algorithm.HMAC512(JwtProperties.SECRET)).build().verify(token);
+		String username = decodedJWT.getClaim("username").asString();
+
+		if(username != null) {
+			// 토큰이 만료되었을경우
+			if(!decodedJWT.getExpiresAt().before(new Date())){
+				String refreshToken = request.getHeader(JwtProperties.REFRESH_TOKEN_STRING);
+				try {
+					jwtService.validateRefreshToken(refreshToken, response);
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+			}
+
 			User user = userRepository.findByUsername(username);
 			
 			// 인증은 토큰 검증시 끝. 인증을 하기 위해서가 아닌 스프링 시큐리티가 수행해주는 권한 처리를 위해 
@@ -57,7 +84,7 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
 							principalDetails, //나중에 컨트롤러에서 DI해서 쓸 때 사용하기 편함.
 							null, // 패스워드는 모르니까 null 처리, 어차피 지금 인증하는게 아니니까!!
 							principalDetails.getAuthorities());
-			
+
 			// 강제로 시큐리티의 세션에 접근하여 값 저장
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 		}
