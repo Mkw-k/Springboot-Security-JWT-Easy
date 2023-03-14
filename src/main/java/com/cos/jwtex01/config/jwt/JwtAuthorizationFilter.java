@@ -47,6 +47,7 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
+		String username = "";
 		String header = request.getHeader(JwtProperties.HEADER_STRING);
 		if(header == null || !header.startsWith(JwtProperties.TOKEN_PREFIX)) {
 			chain.doFilter(request, response);
@@ -71,24 +72,39 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
 		//토큰 디코딩 - 시간 만료시 디코딩 도중에 예외가 발생한다
 		//https://velog.io/@devmin/JWT-token-expired-date-with-timedelta
 		DecodedJWT decodedJWT = null;
+
 		try {
 			decodedJWT = JWT.require(Algorithm.HMAC512(JwtProperties.SECRET)).build().verify(token);
 		} catch (TokenExpiredException e) {
-			logger.info("토큰 시간 만료!!");
-			String refreshToken = request.getHeader(JwtProperties.REFRESH_TOKEN_STRING);
+
+			logger.info("Access 토큰 시간 만료!!");
 			try {
-				//refreshToken 검증
-				jwtService.validateRefreshToken(refreshToken, response);
+			String refreshToken = request.getHeader(JwtProperties.REFRESH_TOKEN_STRING).replace(JwtProperties.TOKEN_PREFIX, "");
+
+			// 정상 토큰인지 확인하기 위해 디코딩 진행
+			DecodedJWT refreshDecodedJWT = JWT.require(Algorithm.HMAC512(JwtProperties.REFRESH_SECRET)).build().verify(refreshToken);
+			username = refreshDecodedJWT.getClaim("username").asString();
+
+			//refreshToken 검증
+			jwtService.validateRefreshToken(refreshToken, response);
+
 			} catch (Exception e2) {
+				logger.info("Refresh 토큰 시간 만료!!");
 				throw new RuntimeException(e2);
 			}
+
 		}
-		String username = decodedJWT.getClaim("username").asString();
+
+		//Access Token이 살아있을경우에만
+		if(decodedJWT != null){
+			username = decodedJWT.getClaim("username").asString();
+		}
+
 
 		//username값이 존재할경우
 		if(username != null) {
-			// 토큰이 만료되었을경우 - refreshToken 검증
-			if(!decodedJWT.getExpiresAt().before(new Date())){
+			// 토큰이 만료되었을경우 - refreshToken 검증 - 위에서 진행완료
+			/*if(!decodedJWT.getExpiresAt().before(new Date())){
 				String refreshToken = request.getHeader(JwtProperties.REFRESH_TOKEN_STRING);
 				try {
 					//refreshToken 검증
@@ -96,7 +112,7 @@ public class JwtAuthorizationFilter extends BasicAuthenticationFilter{
 				} catch (Exception e) {
 					throw new RuntimeException(e);
 				}
-			}
+			}*/
 
 			User user = userRepository.findByUsername(username);
 			

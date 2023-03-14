@@ -53,7 +53,7 @@ public class JwtService {
 
     public Map<String, String> validateRefreshToken(String refreshToken, HttpServletResponse response) throws Exception {
         //Bareer 제거
-        refreshToken = refreshToken.replace("Bearer ", "");
+//        refreshToken = refreshToken.replace("Bearer ", "");
 
         //refresh DB 에 refreshToken 존재여부 확인
         RefreshToken refreshToken1 = getRefreshToken(refreshToken).orElseThrow(() -> new Exception("로그인 정보가 만료되었습니다 다시 로그인해주세요"));
